@@ -62,11 +62,57 @@ TEST_ASSERT_TRUE(is_shutdown(q));
 TEST_ASSERT_TRUE(is_empty(q));
 queue_destroy(q);
 }
+
+
+
+// NEW TESTS
+void test_dequeue_empty_after_shutdown(void)
+{
+    queue_t q = queue_init(5);
+    TEST_ASSERT_TRUE(q != NULL);
+    queue_shutdown(q);
+    TEST_ASSERT_TRUE(dequeue(q) == NULL);
+    queue_destroy(q);
+}
+void test_enqueue_after_shutdown(void)
+{
+    queue_t q = queue_init(5);
+    TEST_ASSERT_TRUE(q != NULL);
+    int data = 42;
+    queue_shutdown(q);
+    // Try to enqueue after shutdown. Should not crash.
+    enqueue(q, &data);
+    TEST_ASSERT_TRUE(is_empty(q)); // No items should be enqueued after shutdown
+    queue_destroy(q);
+}
+
+void test_fill_queue_to_capacity(void)
+{
+    queue_t q = queue_init(3);
+    TEST_ASSERT_TRUE(q != NULL);
+    int a = 1, b = 2, c = 3;
+    enqueue(q, &a);
+    enqueue(q, &b);
+    enqueue(q, &c);
+    TEST_ASSERT_FALSE(is_empty(q));
+    //Dequeuing
+    TEST_ASSERT_TRUE(dequeue(q) == &a);
+    TEST_ASSERT_TRUE(dequeue(q) == &b);
+    TEST_ASSERT_TRUE(dequeue(q) == &c);
+    TEST_ASSERT_TRUE(is_empty(q));
+    queue_destroy(q);
+}
+
+
+
 int main(void) {
 UNITY_BEGIN();
 RUN_TEST(test_create_destroy);
 RUN_TEST(test_queue_dequeue);
 RUN_TEST(test_queue_dequeue_multiple);
 RUN_TEST(test_queue_dequeue_shutdown);
+RUN_TEST(test_dequeue_empty_after_shutdown);
+RUN_TEST(test_enqueue_after_shutdown);
+RUN_TEST(test_fill_queue_to_capacity);
 return UNITY_END();
 }
