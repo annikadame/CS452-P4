@@ -57,8 +57,14 @@ void queue_destroy(queue_t q)
     }
 
     pthread_mutex_lock(&q->lock);
-    free(q->buffer);
+    // Temp save buffer pointer
+    void **buf = q->buffer;
+    // Detach to safely free outside lock
+    q->buffer = NULL;
     pthread_mutex_unlock(&q->lock);
+
+    // Free buffer outside of critical section
+    if(buf) free(buf);
 
     pthread_mutex_destroy(&q->lock);
     pthread_cond_destroy(&q->not_full);
@@ -71,12 +77,17 @@ void queue_destroy(queue_t q)
  // Adds an element to the back of the queue
 void enqueue(queue_t q, void *data)
 {
+
+    // Avoid enqueuing NULL pointer
+    if (data == NULL) return;
     pthread_mutex_lock(&q->lock);
     while (q->size == q->capacity && !q->shutdown) {
+        //Wait until space is available
         pthread_cond_wait(&q->not_full, &q->lock);
     }
 
     if (q->shutdown) {
+        //Exit early if queue is shutting down
         pthread_mutex_unlock(&q->lock);
         return;
     }
@@ -95,6 +106,7 @@ void *dequeue(queue_t q)
     pthread_mutex_lock(&q->lock);
 
     while (q->size == 0 && !q->shutdown) {
+        // Wait for items to be enqueued
         pthread_cond_wait(&q->not_empty, &q->lock);
     }
 
@@ -104,6 +116,7 @@ void *dequeue(queue_t q)
     }
 
     void *data = q->buffer[q->front];
+    // Wrap front index circularly
     q->front = (q->front + 1) % q->capacity;
     q->size--;
 
@@ -116,6 +129,7 @@ void *dequeue(queue_t q)
 void queue_shutdown(queue_t q)
 {
     pthread_mutex_lock(&q->lock);
+    // Signal shutdown to all threads
     q->shutdown = true;
     pthread_cond_broadcast(&q->not_full);
     pthread_cond_broadcast(&q->not_empty);
